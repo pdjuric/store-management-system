@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  auth-db:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - auth-net
+  auth:
+    image: auth-img
+    environment:
+      - DB_URL=auth-db
+    command: [ "/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/app.py" ]
+    networks:
+      - auth-net
+    ports:
+      - "5000:5000"
+
+networks:
+  auth-net:
