@@ -1,3 +1,5 @@
+from time import sleep
+
 from flask import Flask
 from flask_migrate import Migrate, init, migrate, upgrade
 from sqlalchemy_utils import database_exists, create_database
@@ -15,6 +17,7 @@ if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
 db.init_app(app)
 
 with app.app_context() as context:
+    sleep(100)
     init()
     migrate()
     upgrade()

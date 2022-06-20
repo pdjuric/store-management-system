@@ -1,19 +1,15 @@
 import sqlalchemy
 from flask import Flask, request, Response, jsonify
-from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, create_refresh_token, get_jwt_identity, get_jwt
 import re
 from sqlalchemy import and_
+from common.roleCheck import role
 from configuration import Configuration
 from models import db, User, Role
-from flask_migrate import Migrate, init, migrate, upgrade
-from sqlalchemy_utils import database_exists, create_database
 
 app = Flask(__name__)
 app.config.from_object(Configuration)
 db.init_app(app)
-migrateObj = Migrate(app, db)
-
 jwt = JWTManager(app)
 
 
@@ -80,7 +76,8 @@ def login():
         'surname': user.surname,
         'email': user.email,
         'password': user.password,
-        'isCustomer': user.role == 'customer'
+        'isCustomer': user.role == 'customer',
+        'role': user.role
     }
 
     access_token = create_access_token(identity=user.email, additional_claims=additional_claims)
@@ -98,7 +95,7 @@ def refreshToken():
 
 
 @app.route('/delete', methods=['POST'])
-@jwt_required()
+@role('admin')
 def delete():
     logged_user = User.query.filter(User.email == get_jwt_identity()).first()
     if logged_user.role != 'admin':
@@ -119,30 +116,6 @@ def delete():
         User.query.filter(User.email == form_data['email']).delete()
         db.session.commit()
         return Response(status=200)
-
-
-@app.route('/init', methods=['GET'])
-def initialise():
-    if not database_exists(app.config['SQLALCHEMY_DATABASE_URI']):
-        create_database(app.config['SQLALCHEMY_DATABASE_URI'])
-
-    with app.app_context() as context:
-        init()
-        migrate()
-        upgrade()
-        #
-        # adminRole = Role(name='admin')
-        # userRole = Role(name='user')
-        #
-        # database.session.add(adminRole)
-        # database.session.add(userRole)
-        # database.session.commit()
-        #
-        # admin = User(email='admin@admin.com', password='1', forename='admin', surname='admin')
-        # database.session.add(admin)
-        # database.session.commit()
-        #
-        # userRole = UserRole(userId=admin.id, roleId=adminRole.id)
 
 
 if __name__ == '__main__':

@@ -19,7 +19,7 @@ services:
       - DB_URL=auth-db
     depends_on:
       - auth-db
-    command: [ "/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/migrate.py" ]
+    command: [ "/opt/src/common/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/auth/migrate.py" ]
     networks:
       - auth-net
   auth:
@@ -28,7 +28,7 @@ services:
       - DB_URL=auth-db
     depends_on:
       - auth-db
-    command: [ "/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/app.py" ]
+    command: [ "/opt/src/common/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/auth/app.py" ]
     networks:
       - auth-net
     ports:
