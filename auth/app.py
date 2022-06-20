@@ -1,9 +1,11 @@
 import sqlalchemy
 from flask import Flask, request, Response, jsonify
 from flask_migrate import Migrate
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, create_refresh_token, get_jwt_identity, get_jwt
 import re
+from sqlalchemy import and_
 from configuration import Configuration
-from models import db, User
+from models import db, User, Role
 from flask_migrate import Migrate, init, migrate, upgrade
 from sqlalchemy_utils import database_exists, create_database
 
@@ -11,6 +13,8 @@ app = Flask(__name__)
 app.config.from_object(Configuration)
 db.init_app(app)
 migrateObj = Migrate(app, db)
+
+jwt = JWTManager(app)
 
 
 def check_email(email):
@@ -29,33 +33,92 @@ def check_password(password):
 
 @app.route('/register', methods=['POST'])
 def register():
-    message = ""
     form_data = {}
 
     for t in ['forename', 'surname', 'email', 'password', 'isCustomer']:
-        if request.json.get(t) is None or t != 'isCustomer' and len(request.json.get(t)) == 0:
-            message += f'Field {t} is missing. '
-        else:
-            form_data[t] = request.json.get(t)
+        form_data[t] = request.json.get(t, None)
+        if form_data[t] is None or t != 'isCustomer' and len(form_data[t]) == 0:
+            return jsonify(message=f'Field {t} is missing.'), 400
 
-    if not check_email(form_data['email']):
-        message += 'Invalid email. '
+    if form_data['email'] is not None and not check_email(form_data['email']):
+        return jsonify(message='Invalid email.'), 400
 
-    if not check_password(form_data['password']):
-        message += 'Invalid password. '
+    if form_data['password'] is not None and not check_password(form_data['password']):
+        return jsonify(message='Invalid password.'), 400
 
-    if len(message) == 0:
-        user = User(email=form_data['email'], password=form_data['password'], forename=form_data['forename'], surname=form_data['surname'])
-        db.session.add(user)
-        try:
-            db.session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            message += 'Email already exists.'
+    role = Role.query.filter(Role.id == ('customer' if form_data['isCustomer'] else 'worker')).first()
+    user = User(email=form_data['email'].lower(), password=form_data['password'], forename=form_data['forename'], surname=form_data['surname'], role=role)
+    db.session.add(user)
+    try:
+        db.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        return jsonify(message='Email already exists.'), 400
 
-    if len(message) == 0:
-        return Response(status=200)
+    return Response(status=200)
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    form_data = {}
+
+    for t in ['email', 'password']:
+        form_data[t] = request.json.get(t, None)
+        if form_data[t] is None or len(form_data[t]) == 0:
+            return jsonify(message=f'Field {t} is missing.'), 400
+
+    if form_data['email'] is not None and not check_email(form_data['email']):
+        return jsonify(message='Invalid email.'), 400
+
+    user = User.query.filter(and_(
+        User.email == form_data['email'].lower(),
+        User.password == form_data['password'])).first()
+    if not user:
+        return jsonify(message='Invalid credentials.'), 400
+
+    additional_claims = {
+        'forename': user.forename,
+        'surname': user.surname,
+        'email': user.email,
+        'password': user.password,
+        'isCustomer': user.role == 'customer'
+    }
+
+    access_token = create_access_token(identity=user.email, additional_claims=additional_claims)
+    refresh_token = create_refresh_token(identity=user.email, additional_claims=additional_claims)
+
+    return jsonify(accessToken=access_token, refreshToken=refresh_token)
+
+
+@app.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refreshToken():
+    identity = get_jwt_identity()
+    additional_claims = get_jwt()
+    return Response(create_access_token(identity=identity, additional_claims=additional_claims), status=200)
+
+
+@app.route('/delete', methods=['POST'])
+@jwt_required()
+def delete():
+    logged_user = User.query.filter(User.email == get_jwt_identity()).first()
+    if logged_user.role != 'admin':
+        return jsonify(message='Access denied.'), 403
+
+    form_data = {'email': request.json.get('email', None)}
+
+    if form_data['email'] is None or len(form_data['email']) == 0:
+        return jsonify(message='Field email is missing.'), 400
+
+    if form_data['email'] is not None and not check_email(form_data['email']):
+        return jsonify(message='Invalid email.'), 400
+
+    user = User.query.filter(User.email == form_data['email']).first()
+    if not user:
+        return jsonify(message='Unknown user.'), 400
     else:
-        return jsonify(message=message), 400
+        User.query.filter(User.email == form_data['email']).delete()
+        db.session.commit()
+        return Response(status=200)
 
 
 @app.route('/init', methods=['GET'])
@@ -80,10 +143,6 @@ def initialise():
         # database.session.commit()
         #
         # userRole = UserRole(userId=admin.id, roleId=adminRole.id)
-
-
-
-
 
 
 if __name__ == '__main__':

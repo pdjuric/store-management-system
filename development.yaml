@@ -1,16 +1,33 @@
 version: '3'
 
 services:
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+    networks:
+      - auth-net
   auth-db:
     image: mysql
     environment:
       - MYSQL_ROOT_PASSWORD=root
     networks:
       - auth-net
+  auth-db-init:
+    image: auth-db-init-img
+    environment:
+      - DB_URL=auth-db
+    depends_on:
+      - auth-db
+    command: [ "/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/migrate.py" ]
+    networks:
+      - auth-net
   auth:
     image: auth-img
     environment:
       - DB_URL=auth-db
+    depends_on:
+      - auth-db
     command: [ "/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/app.py" ]
     networks:
       - auth-net
