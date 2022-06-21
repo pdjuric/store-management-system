@@ -1,7 +1,9 @@
+import datetime
 from flask import request, jsonify, Response, Flask
-from sqlalchemy import or_, and_
+from flask_jwt_extended import get_jwt
+from sqlalchemy import and_
 
-from models import Product, Category, ProductCategory
+from models import Product, Category, db, Order, ProductOrder
 from configuration import Configuration
 from common.roleCheck import role
 
@@ -29,6 +31,65 @@ def searchProducts():
                    products=[p.json for p in products])
 
 
+@app.route('/order', methods=['POST'])
+@role('customer')
+def orderProducts():
+    no = 0
+    requests = request.json.get('requests')
+    products = []
+    quantities = []
+    if not requests:
+        return Response("Field requests is needed.", status=400)
+    for item in requests:
+
+        id_str = item.get('id')
+        if not id_str:
+            return Response(f"Product id is needed for request number {no}.", status=400)
+
+        quantity_str = item.get('quantity')
+        if not quantity_str:
+            return Response(f"Product quantity is needed for request number {no}.", status=400)
+
+        try:
+            id = int(id_str)
+            if id < 0: raise ValueError
+        except ValueError:
+            return Response(f"Invalid product id for request number {no}.", status=400)
+
+        try:
+            quantity = int(quantity_str)
+            if quantity < 0: raise ValueError
+        except ValueError:
+            return Response(f"Invalid product quantity for request number {no}.", status=400)
+
+        product = Product.query.get(id)
+        if not product:
+            return Response(f"Invalid product for request number {no}.", status=400)
+
+        products.append(product)
+        quantities.append(quantity)
+
+    timestamp = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+    order = Order(user_id=get_jwt()['id'], timestamp=timestamp)
+    db.session.add(order)
+    db.session.commit()
+    total_price = 0
+
+    for product, requested in zip(products, quantities):
+        success, received = product.try_to_sell(requested)
+        if not success:
+            order.setPending()
+
+        total_price += product.price * requested
+        product_order = ProductOrder(product_id=product.id, order_id=order.id, received=received, requested=requested, buying_price=product.price)
+        db.session.add(product_order)
+        db.session.commit()
+
+    order.price = total_price
+    db.session.add(order)
+    db.session.commit()
+
+    return jsonify(id=order.id), 200
 
 if __name__ == '__main__':
     app.run(debug=True)

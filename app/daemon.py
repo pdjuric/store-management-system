@@ -1,7 +1,7 @@
 import csv
 import io
 from redis import Redis
-from models import Product, Category, ProductCategory, db
+from models import Product, Category, ProductCategory, db, ProductOrder
 from configuration import Configuration
 
 with Redis(host=Configuration.REDIS_HOST) as redis:
@@ -16,14 +16,24 @@ with Redis(host=Configuration.REDIS_HOST) as redis:
         product = Product.query.filter(Product.name == product_name).first()
         if product:
 
-            if len(product.categories) != len(categories):
-                break #???
-            for c in categories:
-                if c not in product.categories:
-                    break #???
+            # TODO: what to do when it breaks?
+            if len(product.categories) != len(categories) or len([c for c in categories if c not in product.categories]) != 0:
+                break
 
             product.price = (product.quantity * product.price + product_quantity * product_price) / (product.quantity + product_quantity)
             product.quantity += product_quantity
+            db.session.add(product)
+
+            if product.waiting == 0:
+                break
+
+            for item in ProductOrder.get_incomplete(product.id):
+                added = min(product_quantity, item.get_needed())
+                item.add(added)
+                product.sell(added)
+                product_quantity -= added
+
+            db.commit()
 
         else:
             category_arr = []
@@ -42,5 +52,3 @@ with Redis(host=Configuration.REDIS_HOST) as redis:
             for c in category_arr:
                 db.session.add(ProductCategory(product_id=product.id, category_id=c.id))
             db.session.commit()
-
-        #proveri da li neko ceka na ovo !!

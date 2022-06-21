@@ -1,3 +1,5 @@
+from operator import and_
+
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -20,9 +22,8 @@ class Product(db.Model):
     sold = db.Column(db.Integer, nullable=False, default=0)
     waiting = db.Column(db.Integer, nullable=False, default=0)
 
-
     categories = db.relationship('Category', secondary=ProductCategory.__table__, back_populates='products')
-    orders = db.relationship('Ordeer', secondary=ProductCategory.__table__, back_populates='products')
+    orders = db.relationship('Order', secondary=ProductCategory.__table__, back_populates='products')
 
     @property
     def json(self):
@@ -34,6 +35,25 @@ class Product(db.Model):
             'categories': [str(c) for c in self.categories]
         }
 
+    def try_to_sell(self, needed):
+        if self.sold < self.quantity and self.waiting == 0:
+            available = min(self.quantity - self.sold, needed)
+            self.sold += available
+        else:
+            available = 0
+
+        if needed != available:
+            self.waiting += needed - available
+
+        db.session.add(self)
+
+        return needed == available, available
+
+    def sell(self, cnt):
+        self.sold += cnt
+        self.waiting -= cnt
+        db.session.add(self)
+
 
 class ProductOrder(db.Model):
     __tablename__ = 'product_order'
@@ -42,6 +62,28 @@ class ProductOrder(db.Model):
     received = db.Column(db.Integer, nullable=False)
     requested = db.Column(db.Integer, nullable=False)
     buying_price = db.Column(db.Integer, nullable=False)
+
+    @staticmethod
+    def get_incomplete(product_id, product_id_match=True, order_id=None):
+        conditions = [ProductOrder.received < ProductOrder.requested]
+        if order_id is not None:
+            conditions.append(ProductOrder.order_id == order_id)
+
+        if product_id_match:
+            conditions.append(ProductOrder.product_id == product_id)
+        else:
+            conditions.append(ProductOrder.product_id != product_id)
+
+        return ProductOrder.query.filter(and_(*conditions)).order_by(ProductOrder.timestamp.asc()).all()
+
+    def get_needed(self):
+        return self.requested - self.received
+
+    def add(self, cnt):
+        self.requested += cnt
+        if self.requested == self.received and len(ProductOrder(product_id=self.id, product_id_match=False, order_id=self.order_id)) == 0:
+            Order.get(self.order_id).setComplete()
+        db.session.add(self)
 
 
 class Category(db.Model):
@@ -61,8 +103,17 @@ class Order(db.Model):
     __tablename__ = 'orders'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(8), nullable=False, default='PENDING')
+    price = db.Column(db.Float, nullable=False, default=0)
+    status = db.Column(db.String(8), nullable=False, default='COMPLETE')
     timestamp = db.Column(db.DateTime, nullable=False)
 
     products = db.relationship('Product', secondary=ProductOrder.__table__, back_populates='orders')
+
+    def setComplete(self):
+        self.status = 'COMPLETE'
+        db.session.add(self)  # TODO: da li ovo radi?
+
+    def setPending(self):
+        self.status = 'PEENDING'
+        db.session.add(self)  # TODO: da li ovo radi?
+
