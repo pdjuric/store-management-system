@@ -11,6 +11,25 @@ services:
         image: worker-img
         networks:
             - app-net
+        depends_on:
+            - redis
+    app-db:
+        image: mysql
+        environment:
+            - MYSQL_ROOT_PASSWORD=root
+        networks:
+            - app-net
+    daemon:
+        image: daemon-img
+        environment:
+            - DB_URL=app-db
+        depends_on:
+            - app-db
+            - redis
+        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "--", "python", "/opt/src/daemon.py" ]
+        networks:
+            - app-net
+
 
 networks:
   app-net:

@@ -29,7 +29,7 @@ def addProducts():
             return jsonify(message=f'Incorrect quantity on line {line}.'), 400
 
         try:
-            product_price = int(row[3])
+            product_price = float(row[3])
             if product_price <= 0:
                 raise ValueError
         except ValueError:
@@ -38,7 +38,7 @@ def addProducts():
         # TODO: slanje??
 
         with Redis(host=Configuration.REDIS_HOST) as redis:
-            redis.publish('new_product', row)
+            redis.rpush('new_product', row)
 
         line += 1
 
