@@ -17,6 +17,8 @@ services:
         image: mysql
         environment:
             - MYSQL_ROOT_PASSWORD=root
+        ports:
+            - 3306:3306
         networks:
             - app-net
     daemon:
@@ -29,7 +31,15 @@ services:
         command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "--", "python", "/opt/src/daemon.py" ]
         networks:
             - app-net
-
+    customer:
+        image: customer-img
+        environment:
+            - DB_URL=app-db
+        depends_on:
+            - app-db
+        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "--", "python", "/opt/src/customer.py" ]
+        networks:
+            - app-net
 
 networks:
   app-net:
