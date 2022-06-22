@@ -1,0 +1,49 @@
+version: '3.5'
+
+services:
+    redis:
+        image: redis
+        container_name: store-redis
+        networks:
+            - app-net
+    worker:
+        image: store-worker-img
+        container_name: store-worker
+        networks:
+            - app-net
+        depends_on:
+            - redis
+    app-db:
+        image: mysql
+        container_name: store-app-db
+        networks:
+            - app-net
+        environment:
+            - MYSQL_ROOT_PASSWORD=root
+    daemon:
+        image: store-daemon-img
+        container_name: store-daemon
+        networks:
+            - app-net
+        environment:
+            - DB_URL=app-db
+        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "--", "python", "/opt/src/daemon.py" ]
+        depends_on:
+            - app-db
+            - redis
+    customer:
+        image: store-customer-img
+        container_name: store-customer
+        networks:
+            - app-net
+        environment:
+            - DB_URL=app-db
+        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "--", "python", "/opt/src/customer.py" ]
+        depends_on:
+            - app-db
+
+
+networks:
+  app-net:
+      external:
+        name: store-app-net
