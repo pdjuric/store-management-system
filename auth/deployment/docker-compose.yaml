@@ -3,6 +3,7 @@ version: '3.5'
 services:
     adminer:
         image: adminer
+        container_name: ${PREFIX}-adminer
         networks:
             - auth-net
         ports:

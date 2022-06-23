@@ -2,8 +2,8 @@ FROM my-python
 
 WORKDIR /opt/src
 
-COPY ./auth/migrate.py ./migrate.py
-COPY ./auth/models.py ./models.py
-COPY ./auth/configuration.py ./configuration.py
+COPY ./app/migrate.py ./migrate.py
+COPY ./app/models.py ./models.py
+COPY ./app/configuration.py ./configuration.py
 
 ENV FLASK_APP=migrate.py

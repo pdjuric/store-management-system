@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Parameters:
-# $1 - directory in which source code is located
+# $1 - name of the directory in which target source code is located (without ./)
 # $2 - old prefix of Docker images and containers (which will be removed)
 # $3 - new prefix of Docker images and containers (which will be created)
 #    - if absent, $2 is used
@@ -27,14 +27,14 @@ then
   docker build . -f ./common/my-python.dockerfile -t my-python --no-cache
 fi
 
-for img in `find "$1/deployment" -name "*.dockerfile"`
+for img in `find "./$1/deployment" -name "*.dockerfile"`
 do
   name=`echo $img | sed "s:^.*\/\([a-z|-]*\)\.dockerfile:$prefix-\1-img:"`
   docker build -f "$img" -t "$name" --no-cache .
 done
 
-docker network rm "$2-app-net"
-docker network create "$prefix-app-net"
+docker network rm "$2-$1-net"
+docker network create "$prefix-$1-net"
 
 export PREFIX=$prefix
-docker-compose -f "$1/deployment/docker-compose.yaml" up --detach
+docker-compose -f "./$1/deployment/docker-compose.yaml" up --detach
