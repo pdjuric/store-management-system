@@ -76,6 +76,8 @@ def login():
         'email': user.email,
         'password': user.password,
         'isCustomer': user.role == 'customer',
+
+        'id': user.id,
         'role': user.role
     }
 

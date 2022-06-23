@@ -1,23 +1,28 @@
 from flask import request, jsonify, Response, Flask
 import csv
 import io
+
+from flask_jwt_extended import JWTManager, jwt_required
 from redis import Redis
 from configuration import Configuration
 from common.roleCheck import role
 
 app = Flask(__name__)
 app.config.from_object(Configuration)
-
+jwt = JWTManager(app)
 
 @app.route('/update', methods=['POST'])
 @role('worker')
 def addProducts():
+    if 'file' not in request.files.keys():
+        return jsonify(message='Field file is missing.'), 400
     content = request.files['file'].stream.read().decode('utf-8')
     stream = io.StringIO(content)
     reader = csv.reader(stream)
 
     line = 0
     for row in reader:
+        print(row)
         if len(row) != 4:
             return jsonify(message=f'Incorrect number of values on line {line}.'), 400
         # categories = row[0]
@@ -37,7 +42,7 @@ def addProducts():
             return jsonify(message=f'Incorrect price on line {line}.'), 400
 
         with Redis(host=Configuration.REDIS_HOST) as redis:
-            redis.rpush('new_product', row)
+            redis.rpush('new_product', ','.join(row))
 
         line += 1
 
@@ -45,4 +50,4 @@ def addProducts():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)

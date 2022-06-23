@@ -38,3 +38,6 @@ docker network create "$prefix-$1-net"
 
 export PREFIX=$prefix
 docker-compose -f "./$1/deployment/docker-compose.yaml" up --detach
+
+echo "Waiting for initial migrations  ..."
+docker wait "$prefix-$1-db-init" >/dev/null
