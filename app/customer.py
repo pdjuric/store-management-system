@@ -2,7 +2,6 @@ import datetime
 from flask import request, jsonify, Response, Flask
 from flask_jwt_extended import get_jwt
 from sqlalchemy import and_
-
 from models import Product, Category, db, Order, ProductOrder
 from configuration import Configuration
 from common.roleCheck import role
@@ -39,16 +38,16 @@ def orderProducts():
     products = []
     quantities = []
     if not requests:
-        return Response("Field requests is needed.", status=400)
+        return Response("Field requests is missing.", status=400)
     for item in requests:
 
         id_str = item.get('id')
         if not id_str:
-            return Response(f"Product id is needed for request number {no}.", status=400)
+            return Response(f"Product id is missing for request number {no}.", status=400)
 
         quantity_str = item.get('quantity')
         if not quantity_str:
-            return Response(f"Product quantity is needed for request number {no}.", status=400)
+            return Response(f"Product quantity is missing for request number {no}.", status=400)
 
         try:
             id = int(id_str)
@@ -90,6 +89,7 @@ def orderProducts():
     db.session.commit()
 
     return jsonify(id=order.id), 200
+
 
 if __name__ == '__main__':
     app.run(debug=True)

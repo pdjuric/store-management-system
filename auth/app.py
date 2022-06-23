@@ -5,7 +5,7 @@ import re
 from sqlalchemy import and_
 from common.roleCheck import role
 from configuration import Configuration
-from models import db, User, Role
+from models import db, User
 
 app = Flask(__name__)
 app.config.from_object(Configuration)
@@ -42,8 +42,7 @@ def register():
     if form_data['password'] is not None and not check_password(form_data['password']):
         return jsonify(message='Invalid password.'), 400
 
-    role = Role.query.filter(Role.id == ('customer' if form_data['isCustomer'] else 'worker')).first()
-    user = User(email=form_data['email'].lower(), password=form_data['password'], forename=form_data['forename'], surname=form_data['surname'], role=role)
+    user = User(email=form_data['email'].lower(), password=form_data['password'], forename=form_data['forename'], surname=form_data['surname'], role=('customer' if form_data['isCustomer'] else 'worker'))
     db.session.add(user)
     try:
         db.session.commit()

@@ -23,6 +23,17 @@ services:
         environment:
             - MYSQL_ROOT_PASSWORD=root
         
+    auth-db-init:
+        image: ${PREFIX}-app-db-init-img
+        container_name: ${PREFIX}-app-db-init
+        networks:
+            - app-net
+        environment:
+            - DB_URL=app-db
+        command: [ "/opt/src/common/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/migrate.py" ]
+        depends_on:
+            - app-db
+        
     daemon:
         image: ${PREFIX}-daemon-img
         container_name: ${PREFIX}-daemon

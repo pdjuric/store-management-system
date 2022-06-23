@@ -114,6 +114,6 @@ class Order(db.Model):
         db.session.add(self)  # TODO: da li ovo radi?
 
     def setPending(self):
-        self.status = 'PEENDING'
+        self.status = 'PENDING'
         db.session.add(self)  # TODO: da li ovo radi?
 

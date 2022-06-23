@@ -2,7 +2,7 @@ from flask import Flask
 from flask_migrate import Migrate, init, migrate, upgrade
 from sqlalchemy_utils import database_exists, create_database
 from configuration import Configuration
-from models import db, User
+from models import db
 
 app = Flask(__name__)
 app.config.from_object(Configuration)
@@ -19,6 +19,3 @@ with app.app_context() as context:
     migrate()
     upgrade()
 
-    admin = User(email='admin@admin.com', password='1', forename='admin', surname='admin', role='admin')
-    db.session.add(admin)
-    db.session.commit()

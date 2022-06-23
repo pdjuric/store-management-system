@@ -8,6 +8,7 @@ from common.roleCheck import role
 app = Flask(__name__)
 app.config.from_object(Configuration)
 
+
 @app.route('/update', methods=['POST'])
 @role('worker')
 def addProducts():
@@ -35,8 +36,6 @@ def addProducts():
         except ValueError:
             return jsonify(message=f'Incorrect price on line {line}.'), 400
 
-        # TODO: slanje??
-
         with Redis(host=Configuration.REDIS_HOST) as redis:
             redis.rpush('new_product', row)
 
@@ -44,3 +43,6 @@ def addProducts():
 
     return Response(status=200)
 
+
+if __name__ == '__main__':
+    app.run(debug=True)
