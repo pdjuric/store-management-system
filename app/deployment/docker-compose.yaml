@@ -3,26 +3,29 @@ version: '3.5'
 services:
     redis:
         image: redis
-        container_name: store-redis
+        container_name: ${PREFIX}-redis
         networks:
             - app-net
+
     worker:
-        image: store-worker-img
-        container_name: store-worker
+        image: ${PREFIX}-worker-img
+        container_name: ${PREFIX}-worker
         networks:
             - app-net
         depends_on:
             - redis
+        
     app-db:
         image: mysql
-        container_name: store-app-db
+        container_name: ${PREFIX}-app-db
         networks:
             - app-net
         environment:
             - MYSQL_ROOT_PASSWORD=root
+        
     daemon:
-        image: store-daemon-img
-        container_name: store-daemon
+        image: ${PREFIX}-daemon-img
+        container_name: ${PREFIX}-daemon
         networks:
             - app-net
         environment:
@@ -31,9 +34,10 @@ services:
         depends_on:
             - app-db
             - redis
+        
     customer:
-        image: store-customer-img
-        container_name: store-customer
+        image: ${PREFIX}-customer-img
+        container_name: ${PREFIX}-customer
         networks:
             - app-net
         environment:
@@ -46,4 +50,4 @@ services:
 networks:
   app-net:
       external:
-        name: store-app-net
+        name: ${PREFIX}-app-net

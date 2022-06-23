@@ -1,47 +1,40 @@
 #!/bin/bash
 
-to_kill=$(docker ps --filter=name=store- -q)
-if [ -n "$to_kill" ]
+# Parameters:
+# $1 - directory in which source code is located
+# $2 - old prefix of Docker images and containers (which will be removed)
+# $3 - new prefix of Docker images and containers (which will be created)
+#    - if absent, $2 is used
+
+if [ $# -lt 2 -o $# -gt 3 ]
 then
-  docker kill "$to_kill"
+  echo "Illegal number of parameters."
+  exit 0
 fi
 
-to_rm=$(docker ps -a --filter=name=store- -q)
-if [ -n "$to_rm" ]
+if [ $# -eq 3 ]
 then
-  docker rmi "$to_rm"
+  prefix=$3
+else
+  prefix=$2
 fi
 
+docker rm -f `docker ps -aq -f name="$2-*"`
+docker rmi -f `docker images -aq "$2-*"`
 
-to_rmi=$( echo $(docker images "store-*" -a -q))
-if [ -n "$to_rmi" ]
-then
-  docker rmi $to_rmi
-fi
-
-#docker system prune -a
-#docker builder prune
-
-old=$PWD
-cd ..
-if [ -z $(docker images "my-python" -a -q) ]
+if [ -z `docker images -aq "my-python"` ]
 then
   docker build . -f ./common/my-python.dockerfile -t my-python --no-cache
 fi
 
-for img_file in $(find ./app-deploy -name "*.dockerfile" -maxdepth 2):
+for img in `find "$1/deployment" -name "*.dockerfile"`
 do
-  img_name=$(echo $img_file | sed 's:^\.\/[a-z|-]*\/\([a-z|-]*\).*$:store-\1-img:')
-  echo $PWD
-  echo "docker build . -f $img_file -t $img_name --no-cache"
+  name=`echo $img | sed "s:^.*\/\([a-z|-]*\)\.dockerfile:$prefix-\1-img:"`
+  docker build -f "$img" -t "$name" --no-cache .
 done
 
-cd $old
+docker network rm "$2-app-net"
+docker network create "$prefix-app-net"
 
-docker network rm store-app-net
-docker network create store-app-net
-
-docker-compose -f app.yaml up --detach
-
-
-
+export PREFIX=$prefix
+docker-compose -f "$1/deployment/docker-compose.yaml" up --detach

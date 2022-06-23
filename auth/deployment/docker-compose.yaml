@@ -1,0 +1,46 @@
+version: '3.5'
+
+services:
+    adminer:
+        image: adminer
+        networks:
+            - auth-net
+        ports:
+            - "8080:8080"
+        
+    auth-db:
+        image: mysql
+        container_name: ${PREFIX}-auth-db
+        networks:
+            - auth-net
+        environment:
+            - MYSQL_ROOT_PASSWORD=root
+
+    auth-db-init:
+        image: ${PREFIX}-auth-db-init-img
+        container_name: ${PREFIX}-auth-db-init
+        networks:
+            - auth-net
+        environment:
+            - DB_URL=auth-db
+        command: [ "/opt/src/common/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/migrate.py" ]
+        depends_on:
+            - auth-db
+
+    auth:
+        image: ${PREFIX}-auth-img
+        container_name: ${PREFIX}-auth
+        environment:
+            - DB_URL=auth-db
+        depends_on:
+            - auth-db
+        command: [ "/opt/src/common/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/app.py" ]
+        networks:
+            - auth-net
+        ports:
+            - "5000:5000"
+
+networks:
+    auth-net:
+        external:
+            name: ${PREFIX}-auth-net
