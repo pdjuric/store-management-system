@@ -34,7 +34,7 @@ services:
             - app-net
         environment:
             - DB_URL=app-db
-        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "--", "python", "/opt/src/migrate.py" ]
+        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "-s", "-q", "-t", "60",  "--", "python", "/opt/src/migrate.py" ]
         depends_on:
             - app-db
         
@@ -45,7 +45,7 @@ services:
             - app-net
         environment:
             - DB_URL=app-db
-        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "--", "python", "/opt/src/daemon.py" ]
+        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "-s", "-q", "-t", "60", "--", "python", "/opt/src/daemon.py" ]
         depends_on:
             - app-db
             - redis
@@ -59,7 +59,7 @@ services:
             - "5001:5000"
         environment:
             - DB_URL=app-db
-        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "--", "python", "/opt/src/customer.py" ]
+        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "-s", "-q", "-t", "60", "--", "python", "/opt/src/customer.py" ]
         depends_on:
             - app-db
 

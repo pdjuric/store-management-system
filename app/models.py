@@ -19,37 +19,21 @@ class ProductOrder(db.Model):
     requested = db.Column(db.Integer, nullable=False)
     buying_price = db.Column(db.Float, nullable=False)
 
+    # order = db.relationship('Order', uselist=False)
+
     @staticmethod
-    def get_incomplete(product_id, product_id_match=True, order_id=None):
-        conditions = [ProductOrder.received < ProductOrder.requested]
-        if order_id is not None:
-            conditions.append(ProductOrder.order_id == order_id)
+    def get_incomplete(product_id):
+        return ProductOrder.query.filter(and_(ProductOrder.received < ProductOrder.requested, ProductOrder.product_id == product_id))\
+            .join(Order, Order.id == ProductOrder.order_id).order_by(Order.timestamp.asc()).all()
 
-        if product_id_match:
-            conditions.append(ProductOrder.product_id == product_id)
-        else:
-            conditions.append(ProductOrder.product_id != product_id)
-
-        return ProductOrder.query.filter(and_(*conditions)).order_by(ProductOrder.timestamp.asc()).all()
-
-    def get_needed(self):
+    def get_missing(self):
         return self.requested - self.received
-
-    def add(self, cnt):
-        self.requested += cnt
-        if self.requested == self.received and len(ProductOrder(product_id=self.id, product_id_match=False, order_id=self.order_id)) == 0:
-            Order.get(self.order_id).setComplete()
-        db.session.add(self)
 
     @staticmethod
     def json_all_products_for_order(order_id):
         products = db.session.query(ProductOrder, Product)\
             .select_from(ProductOrder).join(Product, Product.id == ProductOrder.product_id).filter(ProductOrder.order_id == order_id).all()
 
-        # db.session.query(Company, Buyer).join(Buyer, Buyer.buyer_id == Company.id).all()
-
-        # products = ProductOrder.query.filter(ProductOrder.order_id == order_id).join(Product).all()
-        # print(vars(products))
         return [{
             'categories': [str(c) for c in p.categories],
             'name': p.name,
@@ -67,7 +51,6 @@ class Product(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
 
-    sold = db.Column(db.Integer, nullable=False, default=0)
     waiting = db.Column(db.Integer, nullable=False, default=0)
 
     categories = db.relationship('Category', secondary=ProductCategory.__table__, back_populates='products')
@@ -83,25 +66,6 @@ class Product(db.Model):
             'categories': [str(c) for c in self.categories]
         }
 
-    def try_to_sell(self, needed):
-        if self.sold < self.quantity and self.waiting == 0:
-            available = min(self.quantity - self.sold, needed)
-            self.sold += available
-        else:
-            available = 0
-
-        if needed != available:
-            self.waiting += needed - available
-
-        db.session.add(self)
-
-        return needed == available, available
-
-    def sell(self, cnt):
-        self.sold += cnt
-        self.waiting -= cnt
-        db.session.add(self)
-
 
 class Category(db.Model):
     __tablename__ = 'categories'
@@ -110,7 +74,6 @@ class Category(db.Model):
     name = db.Column(db.String(256), nullable=False)
 
     products = db.relationship('Product', secondary=ProductCategory.__table__, back_populates='categories')
-    # timestamp = db.Column(db.DateTime, nullable=False)
 
     def __repr__(self):
         return self.name
@@ -125,14 +88,23 @@ class Order(db.Model):
     timestamp = db.Column(db.DateTime, nullable=False)
 
     products = db.relationship('Product', secondary=ProductOrder.__table__, back_populates='orders')
-
-    def setComplete(self):
-        self.status = 'COMPLETE'
-        db.session.add(self)  # TODO: da li ovo radi?
+    # order_items = db.relationship('Product_Order')
 
     def setPending(self):
         self.status = 'PENDING'
         db.session.add(self)  # TODO: da li ovo radi?
+
+    def check_completed(self):
+
+        #  TODO: ako radi relacija
+
+        if ProductOrder.query.filter(and_(
+            ProductOrder.received < ProductOrder.requested,
+            ProductOrder.order_id == self.id
+        )).count() == 0:
+            self.status = 'COMPLETE'
+            db.session.add(self)
+
 
     @property
     def json(self):

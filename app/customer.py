@@ -1,4 +1,3 @@
-import datetime
 from flask import request, jsonify, Response, Flask
 from flask_jwt_extended import get_jwt, JWTManager
 from sqlalchemy import and_, func
@@ -73,21 +72,26 @@ def orderProducts():
         quantities.append(quantity)
         no += 1
 
-    timestamp = func.now() #datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
+    timestamp = func.now()  # datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%SZ')
     order = Order(user_id=get_jwt()['id'], timestamp=timestamp)
     db.session.add(order)
     db.session.commit()
     total_price = 0
 
     for product, requested in zip(products, quantities):
-        success, received = product.try_to_sell(requested)
-        if not success:
-            order.setPending()
+        received = min(product.quantity, requested) if product.waiting == 0 else 0
+        if received > 0:
+            product.quantity -= received
+
+            if received != requested:
+                product.waiting += requested - received
+                order.setPending()
+
+            db.session.add(product)
 
         total_price += product.price * requested
         product_order = ProductOrder(product_id=product.id, order_id=order.id, received=received, requested=requested, buying_price=product.price)
         db.session.add(product_order)
-        db.session.commit()
 
     order.price = total_price
     db.session.add(order)

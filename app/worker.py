@@ -2,7 +2,7 @@ from flask import request, jsonify, Response, Flask
 import csv
 import io
 
-from flask_jwt_extended import JWTManager, jwt_required
+from flask_jwt_extended import JWTManager
 from redis import Redis
 from configuration import Configuration
 from common.roleCheck import role
@@ -10,6 +10,7 @@ from common.roleCheck import role
 app = Flask(__name__)
 app.config.from_object(Configuration)
 jwt = JWTManager(app)
+
 
 @app.route('/update', methods=['POST'])
 @role('worker')
@@ -20,9 +21,9 @@ def addProducts():
     stream = io.StringIO(content)
     reader = csv.reader(stream)
 
+    rows = []
     line = 0
     for row in reader:
-        print(row)
         if len(row) != 4:
             return jsonify(message=f'Incorrect number of values on line {line}.'), 400
         # categories = row[0]
@@ -41,10 +42,12 @@ def addProducts():
         except ValueError:
             return jsonify(message=f'Incorrect price on line {line}.'), 400
 
-        with Redis(host=Configuration.REDIS_HOST) as redis:
-            redis.rpush('new_product', ','.join(row))
-
+        rows.append(row)
         line += 1
+
+    with Redis(host=Configuration.REDIS_HOST) as redis:
+        for row in rows:
+            redis.rpush(Configuration.REDIS_LIST, ','.join(row))
 
     return Response(status=200)
 

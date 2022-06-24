@@ -6,4 +6,5 @@ RUN mkdir -p /opt/src/common
 WORKDIR /opt/src
 ADD ./common/* ./common/
 
+#ENV PYTHONUNBUFFERED=1
 RUN pip install -r ./common/requirements.txt
