@@ -91,8 +91,20 @@ def login():
 @jwt_required(refresh=True)
 def refreshToken():
     identity = get_jwt_identity()
-    additional_claims = get_jwt()
-    return Response(create_access_token(identity=identity, additional_claims=additional_claims), status=200)
+    refresh_claims = get_jwt()
+
+    additional_claims = {
+        'forename': refresh_claims['forename'],
+        'surname': refresh_claims['surname'],
+        'email': refresh_claims['email'],
+        'password': refresh_claims['password'],
+        'isCustomer': refresh_claims['isCustomer'],
+
+        'id': refresh_claims['id'],
+        'role': refresh_claims['role']
+    }
+
+    return jsonify(accessToken=create_access_token(identity=identity, additional_claims=additional_claims))
 
 
 @app.route('/delete', methods=['POST'])
@@ -111,7 +123,7 @@ def delete():
         return jsonify(message='Invalid email.'), 400
 
     user = User.query.filter(User.email == form_data['email']).first()
-    if not user:
+    if user is None:
         return jsonify(message='Unknown user.'), 400
     else:
         User.query.filter(User.email == form_data['email']).delete()

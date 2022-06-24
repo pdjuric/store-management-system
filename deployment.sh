@@ -2,42 +2,39 @@
 
 # Parameters:
 # $1 - name of the directory in which target source code is located (without ./)
-# $2 - old prefix of Docker images and containers (which will be removed)
-# $3 - new prefix of Docker images and containers (which will be created)
-#    - if absent, $2 is used
 
-if [ $# -lt 2 -o $# -gt 3 ]
-then
+if [ $# -ne 1 ]; then
   echo "Illegal number of parameters."
   exit 0
 fi
 
-if [ $# -eq 3 ]
-then
-  prefix=$3
-else
-  prefix=$2
-fi
+# container and image cleanup
+docker rm -f `docker ps -aq -f name="$1-*"` 2>/dev/null
+docker rmi -f `docker images -aq "$1-*"` 2>/dev/null
 
-docker rm -f `docker ps -aq -f name="$2-*"`
-docker rmi -f `docker images -aq "$2-*"`
-
-if [ -z `docker images -aq "my-python"` ]
-then
+# my-python image build
+if [ -z `docker images -aq "my-python"` ]; then
   docker build . -f ./common/my-python.dockerfile -t my-python --no-cache
 fi
 
-for img in `find "./$1/deployment" -name "*.dockerfile"`
-do
-  name=`echo $img | sed "s:^.*\/\([a-z|-]*\)\.dockerfile:$prefix-\1-img:"`
-  docker build -f "$img" -t "$name" --no-cache .
+for img in `find "./$1/deployment" -name "*.dockerfile"`; do
+
+  # image build
+  name=`echo $img | sed "s:^.*\/\([a-z|-]*\)\.dockerfile:\1:"`
+  docker build -f "$img" -t "$1-$name" --no-cache .
+
+  # network cleaup and build
+  docker network rm "$1-$name-net"
+  docker network create "$1-$name-net"
+
 done
 
-docker network rm "$2-$1-net"
-docker network create "$prefix-$1-net"
+# volume cleanup and build
+docker volume rm "$1-data"
+docker volume create "$1-data"
 
-export PREFIX=$prefix
+# container build and deployment
 docker-compose -f "./$1/deployment/docker-compose.yaml" up --detach
 
 echo "Waiting for initial migrations  ..."
-docker wait "$prefix-$1-db-init" >/dev/null
+docker wait "$1-db-init" >/dev/null

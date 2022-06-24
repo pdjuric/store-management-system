@@ -1,47 +1,58 @@
 version: '3.5'
 
 services:
-    adminer:
-        image: adminer
-        container_name: ${PREFIX}-adminer
-        networks:
-            - auth-net
-        ports:
-            - "8080:8080"
+#    adminer:
+#        image: adminer
+#        container_name: adminer
+#        networks:
+#            - auth-db-init-net
+#        ports:
+#            - "8080:8080"
         
     auth-db:
         image: mysql
-        container_name: ${PREFIX}-auth-db
+        container_name: auth-db
         networks:
-            - auth-net
+            - auth-service-net
+            - auth-db-init-net
         environment:
             - MYSQL_ROOT_PASSWORD=root
+        volumes:
+            - auth-data:/var/lib/mysql
 
     auth-db-init:
-        image: ${PREFIX}-auth-db-init-img
-        container_name: ${PREFIX}-auth-db-init
+        image: auth-db-init
+        container_name: auth-db-init
         networks:
-            - auth-net
+            - auth-db-init-net
         environment:
             - DB_URL=auth-db
         command: [ "/opt/src/common/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/migrate.py" ]
         depends_on:
             - auth-db
 
-    auth:
-        image: ${PREFIX}-auth-img
-        container_name: ${PREFIX}-auth
+    auth-service:
+        image: auth-service
+        container_name: auth-service
         environment:
             - DB_URL=auth-db
         depends_on:
             - auth-db
-        command: [ "/opt/src/common/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/app.py" ]
+        command: [ "/opt/src/common/wait-for-it.sh", "auth-db:3306", "--", "python", "/opt/src/auth.py" ]
         networks:
-            - auth-net
+            - auth-service-net
         ports:
             - "5000:5000"
 
 networks:
-    auth-net:
+    auth-service-net:
         external:
-            name: ${PREFIX}-auth-net
+            name: auth-service-net
+    auth-db-init-net:
+        external:
+            name: auth-db-init-net
+
+volumes:
+    auth-data:
+        external:
+            name: auth-data
