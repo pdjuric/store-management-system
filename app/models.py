@@ -51,8 +51,6 @@ class Product(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
     price = db.Column(db.Float, nullable=False)
 
-    waiting = db.Column(db.Integer, nullable=False, default=0)
-
     categories = db.relationship('Category', secondary=ProductCategory.__table__, back_populates='products')
     orders = db.relationship('Order', secondary=ProductOrder.__table__, back_populates='products')
 

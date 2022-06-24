@@ -79,15 +79,13 @@ def orderProducts():
     total_price = 0
 
     for product, requested in zip(products, quantities):
-        received = min(product.quantity, requested) if product.waiting == 0 else 0
+        received = min(product.quantity, requested)
         if received > 0:
             product.quantity -= received
-
-            if received != requested:
-                product.waiting += requested - received
-                order.setPending()
-
             db.session.add(product)
+
+        if received != requested:
+            order.setPending()
 
         total_price += product.price * requested
         product_order = ProductOrder(product_id=product.id, order_id=order.id, received=received, requested=requested, buying_price=product.price)

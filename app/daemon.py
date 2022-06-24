@@ -43,14 +43,13 @@ while True:
                 for order_item in ProductOrder.get_incomplete(product.id):
                     received = min(product.quantity, order_item.get_missing())
                     if received > 0:
-                        product.waiting -= received
                         product.quantity -= received
                         order_item.received += received
 
                         if order_item.requested == order_item.received:
-                            Order.get(order_item.order_id).check_completed()
+                            Order.query.get(order_item.order_id).check_completed()
 
-                        db.session.add( order_item)
+                        db.session.add(order_item)
                     else:
                         break
 

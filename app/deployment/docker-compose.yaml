@@ -18,7 +18,15 @@ services:
             - redis
         environment:
             - DB_URL=app-db
-        
+
+#    adminer:
+#        image: adminer
+#        container_name: ${PREFIX}-adminer
+#        networks:
+#            - app-net
+#        ports:
+#            - "8080:8080"
+
     app-db:
         image: mysql
         container_name: ${PREFIX}-app-db
@@ -60,6 +68,19 @@ services:
         environment:
             - DB_URL=app-db
         command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "-s", "-q", "-t", "60", "--", "python", "/opt/src/customer.py" ]
+        depends_on:
+            - app-db
+            
+    admin:
+        image: ${PREFIX}-admin-img
+        container_name: ${PREFIX}-admin
+        networks:
+            - app-net
+        ports:
+            - "5003:5000"
+        environment:
+            - DB_URL=app-db
+        command: [ "/opt/src/common/wait-for-it.sh", "app-db:3306", "-s", "-q", "-t", "60", "--", "python", "/opt/src/admin.py" ]
         depends_on:
             - app-db
 
